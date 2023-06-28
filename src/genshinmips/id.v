@@ -558,14 +558,7 @@ module id(
         end         //if
     end         //always
 
-always @(*) begin
-        stallreq_for_reg1_loadrelate        <= `NoStop;
-        if (rst == `RstEnable) begin
-            reg1_o                          <= `ZeroWord;
-        end else if(pre_inst_is_load == 1'b1 && ex_wd_i == reg1_addr_o && reg1_read_o == 1'b1) begin
-            stallreq_for_reg1_loadrelate    <= `Stop;
-        end
-    end
+
     /*Part.2 确定进行运算的源操作数1*/
         always @ (*) begin
             stallreq_for_reg1_loadrelate        <= `NoStop;
