@@ -27,7 +27,7 @@ module pc_reg(
 
     always @ (posedge clk) begin
         if (ce == `ChipDisable) begin
-            pc                      <= 32'h0000_0000;        //指令存储器禁用时，pc为0
+            pc                      <= 32'h8000_0000;        //指令存储器禁用时，pc为80000000
         end else if (stall[0] == `NoStop) begin
             if (branch_flag_i == `Branch) begin
                 pc                  <= branch_target_address_i;

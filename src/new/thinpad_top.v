@@ -155,7 +155,7 @@ GenshinMIPS GenshinMIPS_1(
            .ram_ce_o      (ram_ce_o  )
        );
 
-RAM RAM_1(
+RAM_ctrl RAM_ctrl_1(
         .rst            (reset_btn),
         .clk_50M            (clk_50M),           //50MHz 时钟输入
 
@@ -170,8 +170,6 @@ RAM RAM_1(
         .ram_sel_i         (ram_sel_o),
         .ram_ce_i          (ram_ce_o),
 
-        .txd                (txd),
-        .rxd                (rxd),
 
         .base_ram_data      (base_ram_data),
         .base_ram_addr      (base_ram_addr),
