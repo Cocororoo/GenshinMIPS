@@ -1,14 +1,4 @@
-`include "ex_mem.v"
-`include "ex.v"
-`include "id_ex.v"
-`include "id.v"
-`include "if_id.v"
-`include "mem_wb.v"
-`include "mem.v"
-`include "pc_reg.v"
-`include "regfile.v"
-`include "ctrl.v"
-
+`include "define.v"
 
 /*顶层模块*/
 
@@ -27,7 +17,9 @@ module GenshinMIPS(
 	output wire [`RegBus]       ram_data_o,
 	output wire                 ram_we_o,
 	output wire [3:0]           ram_sel_o,
-	output wire                 ram_ce_o
+	output wire                 ram_ce_o,
+
+    input  wire [1:0]           state
 );
 
 //连接IF/ID模块与译码阶段ID模块的变量
@@ -94,6 +86,10 @@ wire [`RegBus]                  reg2_data;
 wire [`RegAddrBus]              reg1_addr;
 wire [`RegAddrBus]              reg2_addr;
 
+//连接EX与ID模块的变量
+wire [`DataBus]                 ex_id_last_sdata;
+wire [`DataAddrBus]             ex_id_last_saddr;
+
 wire                            is_in_delayslot_i;
 wire                            is_in_delayslot_o;
 wire                            next_inst_in_delayslot_o;
@@ -102,7 +98,7 @@ wire [`RegBus]                  branch_target_address;
 
 wire[5:0] stall;
 wire stallreq_from_id;	
-wire stallreq_from_ex;
+wire stallreq_from_mem;
 
 /*各模块实例化*/
 
@@ -174,7 +170,14 @@ id id0(
     
     .is_in_delayslot_o(id_is_in_delayslot_o),
 
-    .stallreq(stallreq_from_id)	
+    //EX阶段存储加载信息
+    .ex_last_saddr_i(ex_id_last_saddr),
+    .ex_last_sdata_i(ex_id_last_sdata),    
+    .ex_last_laddr_i(ex_wreg_o),    
+
+    .stallreq(stallreq_from_id),
+
+    .state(state)
 );
 
 regfile regfile1(
@@ -243,9 +246,9 @@ ex ex0(
     
     .aluop_o(ex_aluop_o),
     .mem_addr_o(ex_mem_addr_o),
-    .reg2_o(ex_reg2_o),
+    .reg2_o(ex_reg2_o)
 
-    .stallreq(stallreq_from_ex) 
+    // .stallreq(stallreq_from_mem) 
 );
 
 ex_mem ex_mem0(
@@ -297,7 +300,9 @@ mem mem0(
     .mem_we_o(ram_we_o),
     .mem_sel_o(ram_sel_o),
     .mem_data_o(ram_data_o),
-    .mem_ce_o(ram_ce_o)	
+    .mem_ce_o(ram_ce_o),
+
+    .stallreq(stallreq_from_mem)	
 );
 
 mem_wb mem_wb0(
@@ -322,7 +327,7 @@ ctrl ctrl0(
     .stallreq_from_id(stallreq_from_id),
 
   	//来自执行阶段的暂停请求
-    .stallreq_from_ex(stallreq_from_ex),
+    .stallreq_from_mem(stallreq_from_mem),
 
     .stall(stall)       	
 );

@@ -25,16 +25,17 @@ module pc_reg(
         end
     end
 
-    always @ (posedge clk) begin
-        if (ce == `ChipDisable) begin
-            pc                      <= 32'h8000_0000;        //指令存储器禁用时，pc为80000000
-        end else if (stall[0] == `NoStop) begin
-            if (branch_flag_i == `Branch) begin
-                pc                  <= branch_target_address_i;
+    always @(posedge clk) begin
+        if(ce == `ChipDisable) begin
+            pc <= `PC_BEGIN_ADDR;
+        end else if(stall[0] == `NoStop) begin
+            if(branch_flag_i == `Branch) begin
+                pc <= branch_target_address_i;
             end else begin
-                pc                      <= pc + 4'h4;            //指令存储器使能且未中断时，pc每周期+4，对应一条指令4个字节                
-            end    
+                pc <= pc + 4'h4;
+            end
         end
+        //流水线暂停，保持原有状态
     end
 
 endmodule

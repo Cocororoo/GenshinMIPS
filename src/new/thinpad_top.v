@@ -139,6 +139,8 @@ wire         ram_we_o;
 wire [3:0]  ram_sel_o;
 wire         ram_ce_o;
 
+wire [1:0]       state;
+
 GenshinMIPS GenshinMIPS_1(
            .rst            (reset_btn),
            .clk            (clk_50M),
@@ -152,24 +154,25 @@ GenshinMIPS GenshinMIPS_1(
            .ram_data_o    (ram_data_o),
            .ram_we_o      (ram_we_o  ),
            .ram_sel_o     (ram_sel_o ),
-           .ram_ce_o      (ram_ce_o  )
+           .ram_ce_o      (ram_ce_o  ),
+
+           .state         (state)
        );
 
 RAM_ctrl RAM_ctrl_1(
-        .rst            (reset_btn),
-        .clk_50M            (clk_50M),           //50MHz 时钟输入
+        .rst                (reset_btn),
+        .clk            (clk_50M),           //50MHz 时钟输入
 
         .rom_addr_i         (rom_addr_o),
-        .ce_i               (rom_ce_o),
+        .rom_ce_i           (rom_ce_o),
         .rom_data_o         (rom_data_i),
 
-        .ram_data_o        (ram_data_i),
-        .ram_addr_i        (ram_addr_o),
-        .ram_data_i        (ram_data_o),
-        .ram_we_i_n          (ram_we_o),
-        .ram_sel_i         (ram_sel_o),
-        .ram_ce_i          (ram_ce_o),
-
+        .ram_data_o         (ram_data_i),
+        .mem_addr_i         (ram_addr_o),
+        .mem_data_i         (ram_data_o),
+        .mem_we             (ram_we_o),
+        .mem_sel            (ram_sel_o),
+        .mem_ce_i           (ram_ce_o),
 
         .base_ram_data      (base_ram_data),
         .base_ram_addr      (base_ram_addr),
@@ -183,7 +186,12 @@ RAM_ctrl RAM_ctrl_1(
         .ext_ram_be_n       (ext_ram_be_n),
         .ext_ram_ce_n       (ext_ram_ce_n),
         .ext_ram_oe_n       (ext_ram_oe_n),
-        .ext_ram_we_n       (ext_ram_we_n)
+        .ext_ram_we_n       (ext_ram_we_n),
+
+        .txd                (txd),
+        .rxd                (rxd),
+
+        .state              (state)
     );
 
 

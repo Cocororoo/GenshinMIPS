@@ -263,3 +263,4 @@
 `define RegNumLog2 5
 `define NOPRegAddr 5'b00000
 
+`define PC_BEGIN_ADDR 32'h8000_0000

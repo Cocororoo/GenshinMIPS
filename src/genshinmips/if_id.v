@@ -21,10 +21,12 @@ module if_id(
         if (rst == `RstEnable) begin
             id_pc               <= `ZeroWord;       //复位时pc取0
             id_inst             <= `ZeroWord;       //复位时指令取0，即空指令
-        end else if (stall[1] == `Stop && stall[2] == `NoStop) begin //取值暂停，译码继续
-            id_pc               <= `ZeroWord;           
-            id_inst             <= `ZeroWord;
-        end else if (stall[1] == `NoStop) begin
+        end 
+        // else if (stall[1] == `Stop && stall[2] == `NoStop) begin //取值暂停，译码继续
+        //     id_pc               <= `ZeroWord;           
+        //     id_inst             <= `ZeroWord;
+        // end 
+        else if (stall[1] == `NoStop) begin
             id_pc               <= if_pc;           //向下传递取值阶段的值
             id_inst             <= if_inst;
         end

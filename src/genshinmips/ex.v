@@ -23,7 +23,7 @@ module ex(
     //当前指令
     input  wire [`RegBus]       inst_i,
 
-    //执行结果
+    //执行结果，送往回写阶段
     output reg [`RegAddrBus]    wd_o,       //写入寄存器地址
     output reg                  wreg_o,     //执行阶段写入使能
     output reg [`RegBus]        wdata_o,    //写入寄存器的值
@@ -31,10 +31,15 @@ module ex(
     //中断请求
     output wire                 stallreq,
 
-    //访存指令输出接口
-    output wire [`AluOpBus]     aluop_o,
-    output wire [`RegBus]       mem_addr_o,
-    output wire [`RegBus]       reg2_o
+    //访存指令输出接口（访存）
+    output wire [`AluOpBus]     aluop_o,    //存储类型，同时送往id判断load相关
+    output wire [`RegBus]       mem_addr_o, //存储地址
+    output wire [`RegBus]       reg2_o      //存储数据
+
+    // //送往mem阶段的信息（访存相关）
+    // output  reg [3:0]    mem_op,         //存储类型,同时要送往id阶段以判断load相关
+    // output  reg [31:0]   mem_addr_o,     //存储地址
+    // output  reg [31:0]   mem_data_o     //存储数据
 );
 
     reg [`RegBus]               logicout;       //保存逻辑运算的结果

@@ -16,7 +16,7 @@ module mem(
     input wire [`RegBus]        mem_addr_i,
     input wire [`RegBus]        reg2_i,
 
-    //来自外部RAM信息
+    //来自外部RAM信息（LB，LW）
     input wire [`RegBus]        mem_data_i,
 
     //访存阶段的结果
@@ -29,9 +29,13 @@ module mem(
     output wire                 mem_we_o,
     output reg [3:0]            mem_sel_o,  //字节选择
     output reg [`RegBus]        mem_data_o,
-    output reg                  mem_ce_o    //RAM使能
+    output reg                  mem_ce_o,   //RAM使能
 
+	output wire 				stallreq
 );
+
+	assign  stallreq    = (mem_addr_i >= 32'h80000000) 
+                        && (mem_addr_i < 32'h80400000);
 
     wire [`RegBus]              zero32;
     reg                         mem_we;

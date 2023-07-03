@@ -16,7 +16,7 @@ module id(
     //数据前推实现：处于执行阶段指令的运算结果
     input wire                      ex_wreg_i,
     input wire [`RegBus]            ex_wdata_i,
-    input wire [`RegAddrBus]        ex_wd_i,
+    input wire [`RegAddrBus]        ex_wd_i,        //执行阶段写寄存器的地址
 
     //数据前推实现：处于访存阶段的指令运算结果
     input wire                      mem_wreg_i,
@@ -54,8 +54,15 @@ module id(
     output reg                      branch_flag_o,
     output reg [`RegBus]            branch_target_address_o,
     output reg [`RegBus]            link_addr_o,
-    output reg                      is_in_delayslot_o
+    output reg                      is_in_delayslot_o,
     
+    //load冒险处理
+    // input  wire                     ex_last_is_load_i,  //上一条指令是否是Load
+    input  wire [`DataAddrBus]      ex_last_laddr_i,    //上一次加载地址
+    input  wire [`DataAddrBus]      ex_last_saddr_i,    //上一次存储地址
+    input  wire [`DataBus]          ex_last_sdata_i,    //上一次存储数据
+    
+    input  wire                     state               //串口状态
 );
 
     //要读的寄存器是否与上条指令存在load相关
@@ -564,6 +571,10 @@ module id(
             stallreq_for_reg1_loadrelate        <= `NoStop;
             if (rst == `RstEnable) begin
                 reg1_o              <= `ZeroWord;           
+            end else if(pre_inst_is_load == 1'b1 && ex_wd_i == reg1_addr_o 
+			&& reg1_o == 1'b1 && ex_last_laddr_i == ex_last_saddr_i) begin
+                reg1_o              <= ex_last_sdata_i;
+            //发生load冒险需要暂停流水线
             end else if(pre_inst_is_load == 1'b1 && ex_wd_i == reg1_addr_o && reg1_read_o == 1'b1) begin
                 stallreq_for_reg1_loadrelate    <= `Stop;
             end else if((reg1_read_o == 1'b1) && (ex_wreg_i == 1'b1) && (ex_wd_i == reg1_addr_o)) begin
@@ -584,6 +595,9 @@ module id(
             stallreq_for_reg2_loadrelate        <=`NoStop;
             if (rst == `RstEnable) begin
                 reg2_o              <= `ZeroWord;           
+            end else if(pre_inst_is_load == 1'b1 && ex_wd_i == reg2_addr_o 
+			&& reg2_o == 1'b1 && ex_last_laddr_i == ex_last_saddr_i) begin
+                reg2_o              <= ex_last_sdata_i;
             end else if(pre_inst_is_load == 1'b1 && ex_wd_i == reg2_addr_o && reg2_read_o == 1'b1) begin
                 stallreq_for_reg2_loadrelate    <= `Stop;
             end else if((reg2_read_o == 1'b1) && (ex_wreg_i == 1'b1) && (ex_wd_i == reg2_addr_o)) begin
