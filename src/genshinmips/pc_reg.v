@@ -10,8 +10,8 @@ module pc_reg(
     input wire [5:0]                stall, //中断请求
     
     //来自译码阶段（ID）
-    input wire                      branch_flag_i,
-    input wire [`RegBus]            branch_target_address_i,
+    input wire                      branch_flag_i,              //分支flag
+    input wire [`RegBus]            branch_target_address_i,    //分支地址
 
     output reg [`InstAddrBus]       pc, //要读取的指令地址
     output reg                      ce  //指令存储器使能信号

@@ -7,6 +7,8 @@ regfile模块：寄存器堆，可以同时读2个寄存器和写1个寄存器
 module regfile(
     input wire                      clk,
     input wire                      rst,
+    input wire                  pc, 
+
 
     //写端口
     input wire                      we,         //写入使能

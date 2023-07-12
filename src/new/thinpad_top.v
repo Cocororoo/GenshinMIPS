@@ -56,12 +56,12 @@ module thinpad_top (
   /* =========== Demo code begin =========== */
 
   // PLL分频示例
-  wire locked, clk_10M, clk_20M;
+  wire locked, clk_40M, clk_20M;
   pll_example clock_gen (
       // Clock in ports
       .clk_in1(clk_50M),  // 外部时钟输入
       // Clock out ports
-      .clk_out1(clk_10M),  // 时钟输出1，频率在IP配置界面中设置
+      .clk_out1(clk_40M),  // 时钟输出1，频率在IP配置界面中设置
       .clk_out2(clk_20M),  // 时钟输出2，频率在IP配置界面中设置
       // Status and control signals
       .reset(reset_btn),  // PLL复位输入
@@ -69,15 +69,15 @@ module thinpad_top (
                        // 后级电路复位信号应当由它生成（见下）
   );
 
-  reg reset_of_clk10M;
-  // 异步复位，同步释放，将locked信号转为后级电路的复位reset_of_clk10M
-  always @(posedge clk_10M or negedge locked) begin
-    if (~locked) reset_of_clk10M <= 1'b1;
-    else reset_of_clk10M <= 1'b0;
+  reg reset_of_clk40M;
+  // 异步复位，同步释放，将locked信号转为后级电路的复位reset_of_clk40M
+  always @(posedge clk_40M or negedge locked) begin
+    if (~locked) reset_of_clk40M <= 1'b1;
+    else reset_of_clk40M <= 1'b0;
   end
 
-  always @(posedge clk_10M or posedge reset_of_clk10M) begin
-    if (reset_of_clk10M) begin
+  always @(posedge clk_40M or posedge reset_of_clk40M) begin
+    if (reset_of_clk40M) begin
       // Your Code
     end else begin
       // Your Code
@@ -136,14 +136,14 @@ wire [31:0]  ram_data_i;
 wire [31:0]  ram_addr_o;
 wire [31:0]  ram_data_o;
 wire         ram_we_o;
-wire [3:0]  ram_sel_o;
+wire [3:0]   ram_sel_o;
 wire         ram_ce_o;
 
 wire [1:0]       state;
 
 GenshinMIPS GenshinMIPS_1(
-           .rst            (reset_btn),
-           .clk            (clk_50M),
+           .rst            (reset_of_clk40M),
+           .clk            (clk_40M),
 
            .rom_addr_o     (rom_addr_o),
            .rom_ce_o       (rom_ce_o),
@@ -160,8 +160,8 @@ GenshinMIPS GenshinMIPS_1(
        );
 
 RAM_ctrl RAM_ctrl_1(
-        .rst                (reset_btn),
-        .clk            (clk_50M),           //50MHz 时钟输入
+        .rst                (reset_of_clk40M),
+        .clk            (clk_40M),           //50MHz 时钟输入
 
         .rom_addr_i         (rom_addr_o),
         .rom_ce_i           (rom_ce_o),
@@ -172,7 +172,7 @@ RAM_ctrl RAM_ctrl_1(
         .mem_data_i         (ram_data_o),
         .mem_we             (ram_we_o),
         .mem_sel            (ram_sel_o),
-        .mem_ce_i           (ram_ce_o),
+
 
         .base_ram_data      (base_ram_data),
         .base_ram_addr      (base_ram_addr),

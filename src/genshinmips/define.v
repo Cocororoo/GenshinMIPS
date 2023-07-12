@@ -264,3 +264,10 @@
 `define NOPRegAddr 5'b00000
 
 `define PC_BEGIN_ADDR 32'h8000_0000
+
+`define SerialState 32'hBFD003FC    //串口状态地址
+`define SerialData  32'hBFD003F8    //串口数据地址
+
+`define BaseRamStart 32'h8000_0000    //baseram开始地址
+`define BaseRam_ExtRam  32'h8040_0000    //baseram结束/exitram开始地址
+`define ExtRamEnd 32'h8080_0000    //exitram结束地址

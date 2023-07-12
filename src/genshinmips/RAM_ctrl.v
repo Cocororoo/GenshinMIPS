@@ -14,9 +14,6 @@
 
 `include "define.v"
 
-`define SerialState 32'hBFD003FC    //串口状态地址
-`define SerialData  32'hBFD003F8    //串口数据地址
-
 module RAM_ctrl (
     input wire clk,
     input wire rst,
@@ -30,9 +27,9 @@ module RAM_ctrl (
     output   reg[31:0]   ram_data_o,        //读取的数据
     input    wire[31:0]  mem_addr_i,        //读（写）地址
     input    wire[31:0]  mem_data_i,        //写入的数据
-    input    wire        mem_we,          //写使能，低有效
-    input    wire[3:0]   mem_sel,         //字节选择信号
-    input    wire        mem_ce_i,          //片选信号
+    input    wire        mem_we,          //写使能，高有效
+    input    wire[3:0]   mem_sel,         //字节选择信号，高有效
+
 
     //BaseRAM信号
     inout    wire[31:0]  base_ram_data,     //BaseRAM数据
@@ -60,133 +57,135 @@ module RAM_ctrl (
 wire [3:0] mem_sel_n;
 assign mem_sel_n = ~mem_sel;
 
-// wire [7:0]  RxD_data;           //接收到的数据
-// wire [7:0]  TxD_data;           //待发送的数据
-// wire        RxD_data_ready;     //接收器收到数据完成之后，置为1
-// wire        TxD_busy;           //发送器状态是否忙碌，1为忙碌，0为不忙碌
-// wire        TxD_start;          //发送器是否可以发送数据，1代表可以发送
-// wire        RxD_clear;          //为1时将清除接收标志（ready信号）
+wire [7:0]  RxD_data;           //接收到的数据
+wire [7:0]  TxD_data;           //待发送的数据
+wire        RxD_data_ready;     //接收器收到数据完成之后，置为1
+wire        TxD_busy;           //发送器状态是否忙碌，1为忙碌，0为不忙碌
+wire        TxD_start;          //发送器是否可以发送数据，1代表可以发送
+wire        RxD_clear;          //为1时将清除接收标志（ready信号）
 
-// wire        RxD_FIFO_wr_en;
-// wire        RxD_FIFO_full;
-// wire [7:0]  RxD_FIFO_din;
-// reg         RxD_FIFO_rd_en;
-// wire        RxD_FIFO_empty;
-// wire [7:0]  RxD_FIFO_dout;
+wire        RxD_FIFO_wr_en;
+wire        RxD_FIFO_full;
+wire [7:0]  RxD_FIFO_din;
+reg         RxD_FIFO_rd_en;
+wire        RxD_FIFO_empty;
+wire [7:0]  RxD_FIFO_dout;
 
-// reg         TxD_FIFO_wr_en;
-// wire        TxD_FIFO_full;
-// reg  [7:0]  TxD_FIFO_din;
-// wire        TxD_FIFO_rd_en;
-// wire        TxD_FIFO_empty;
-// wire [7:0]  TxD_FIFO_dout;
+reg         TxD_FIFO_wr_en;
+wire        TxD_FIFO_full;
+reg  [7:0]  TxD_FIFO_din;
+wire        TxD_FIFO_rd_en;
+wire        TxD_FIFO_empty;
+wire [7:0]  TxD_FIFO_dout;
 
-// //串口实例化模块，波特率9600，仿真时可改为59000000
-// async_receiver #(.ClkFrequency(59000000),.Baud(9600))   //接收模块
-//                 ext_uart_r(
-//                    .clk(clk),                           //外部时钟信号
-//                    .RxD(rxd),                           //外部串行信号输入
-//                    .RxD_data_ready(RxD_data_ready),     //数据接收到标志
-//                    .RxD_clear(RxD_clear),               //清除接收标志
-//                    .RxD_data(RxD_data)                  //接收到的一字节数据
-//                 );
+//串口实例化模块，波特率9600，仿真时可改为50000000
+async_receiver #(.ClkFrequency(40000000),.Baud(9600))   //接收模块
+                ext_uart_r(
+                   .clk(clk),                           //外部时钟信号
+                   .RxD(rxd),                           //外部串行信号输入
+                   .RxD_data_ready(RxD_data_ready),     //数据接收到标志
+                   .RxD_clear(RxD_clear),               //清除接收标志
+                   .RxD_data(RxD_data)                  //接收到的一字节数据
+                );
 
-// async_transmitter #(.ClkFrequency(59000000),.Baud(9600)) //发送模块
-//                     ext_uart_t(
-//                       .clk(clk),                        //外部时钟信号
-//                       .TxD(txd),                        //串行信号输出
-//                       .TxD_busy(TxD_busy),              //发送器忙状态指示
-//                       .TxD_start(TxD_start),            //开始发送信号
-//                       .TxD_data(TxD_data)               //待发送的数据
-//                     );
+async_transmitter #(.ClkFrequency(40000000),.Baud(9600)) //发送模块
+                    ext_uart_t(
+                      .clk(clk),                        //外部时钟信号
+                      .TxD(txd),                        //串行信号输出
+                      .TxD_busy(TxD_busy),              //发送器忙状态指示
+                      .TxD_start(TxD_start),            //开始发送信号
+                      .TxD_data(TxD_data)               //待发送的数据
+                    );
 
-// //fifo接收模块
-// fifo_generator_0 RXD_FIFO (
-//     .rst(rst),
-//     .clk(clk),
-//     .wr_en(RxD_FIFO_wr_en),     //写使能
-//     .din(RxD_FIFO_din),         //接收到的数据
-//     .full(RxD_FIFO_full),       //判满标志
 
-//     .rd_en(RxD_FIFO_rd_en),     //读使能
-//     .dout(RxD_FIFO_dout),       //传递给mem阶段读出的数据
-//     .empty(RxD_FIFO_empty)      //判空标志
-// );
 
-// //fifo发送模块
-// fifo_generator_0 TXD_FIFO (
-//     .rst(rst),
-//     .clk(clk),
-//     .wr_en(TxD_FIFO_wr_en),     //写使能
-//     .din(TxD_FIFO_din),         //需要发送的数据
-//     .full(TxD_FIFO_full),       //判满标志
+//fifo接收模块
+fifo_generator_0 RXD_FIFO (
+    .rst(rst),
+    .clk(clk),
+    .wr_en(RxD_FIFO_wr_en),     //写使能
+    .din(RxD_FIFO_din),         //接收到的数据
+    .full(RxD_FIFO_full),       //判满标志
 
-//     .rd_en(TxD_FIFO_rd_en),     //读使能，为1时串口取出数据发送
-//     .dout(TxD_FIFO_dout),       //传递给串口待发送的数据
-//     .empty(TxD_FIFO_empty)      //判空标志
-// );
+    .rd_en(RxD_FIFO_rd_en),     //读使能
+    .dout(RxD_FIFO_dout),       //传递给mem阶段读出的数据
+    .empty(RxD_FIFO_empty)      //判空标志
+);
+
+//fifo发送模块
+fifo_generator_0 TXD_FIFO (
+    .rst(rst),
+    .clk(clk),
+    .wr_en(TxD_FIFO_wr_en),     //写使能
+    .din(TxD_FIFO_din),         //需要发送的数据
+    .full(TxD_FIFO_full),       //判满标志
+
+    .rd_en(TxD_FIFO_rd_en),     //读使能，为1时串口取出数据发送
+    .dout(TxD_FIFO_dout),       //传递给串口待发送的数据
+    .empty(TxD_FIFO_empty)      //判空标志
+);
 
 //内存映射
 wire is_SerialState = (mem_addr_i ==  `SerialState); 
 wire is_SerialData  = (mem_addr_i == `SerialData);
-wire is_base_ram    = (mem_addr_i >= 32'h80000000) 
-                    && (mem_addr_i < 32'h80400000);
-wire is_ext_ram     = (mem_addr_i >= 32'h80400000)
-                    && (mem_addr_i < 32'h80800000);
+wire is_base_ram    = (mem_addr_i >= `BaseRamStart) 
+                    && (mem_addr_i < `BaseRam_ExtRam);
+wire is_ext_ram     = (mem_addr_i >= `BaseRam_ExtRam)
+                    && (mem_addr_i < `ExtRamEnd);
 
 reg [31:0] serial_o;        //串口输出数据
 wire[31:0] base_ram_o;      //baseram输出数据
 wire[31:0] ext_ram_o;       //extram输出数据
 
-// assign state = {!RxD_FIFO_empty,!TxD_FIFO_full};
+assign state = {!RxD_FIFO_empty,!TxD_FIFO_full};
 
-// assign TxD_FIFO_rd_en = TxD_start;
-// assign TxD_start = (!TxD_busy) && (!TxD_FIFO_empty);
-// assign TxD_data = TxD_FIFO_dout;
+assign TxD_FIFO_rd_en = TxD_start;
+assign TxD_start = (!TxD_busy) && (!TxD_FIFO_empty);
+assign TxD_data = TxD_FIFO_dout;
 
-// assign RxD_FIFO_wr_en = RxD_data_ready;
-// assign RxD_FIFO_din = RxD_data;
-// assign RxD_clear = RxD_data_ready && (!RxD_FIFO_full);
+assign RxD_FIFO_wr_en = RxD_data_ready;
+assign RxD_FIFO_din = RxD_data;
+assign RxD_clear = RxD_data_ready && (!RxD_FIFO_full);
 
-// always @(*) begin
-//     TxD_FIFO_wr_en = `WriteDisable;
-//     TxD_FIFO_din = 8'h00;
-//     RxD_FIFO_rd_en = `ReadDisable;
-//     serial_o = `ZeroWord;
-//     if(is_SerialState) begin            //读取串口状态
-//         TxD_FIFO_wr_en = `WriteDisable;
-//         TxD_FIFO_din = 8'h00;
-//         RxD_FIFO_rd_en = `ReadDisable;
-//         serial_o = {{30{1'b0}}, state};
-//     end 
-//     else if(is_SerialData) begin        //通过串口获取（发送）数据
-//         if(mem_we == `WriteDisable) begin   //接收串口数据
-//             TxD_FIFO_wr_en = `WriteDisable;
-//             TxD_FIFO_din = 8'h00;
-//             RxD_FIFO_rd_en = `ReadEnable;
-//             serial_o = {{24{1'b0}}, RxD_FIFO_dout};
-//         end
-//         else begin                              //发送串口数据
-//             TxD_FIFO_wr_en = `WriteEnable;
-//             TxD_FIFO_din = mem_data_i[7:0];
-//             RxD_FIFO_rd_en = `ReadDisable;
-//             serial_o = `ZeroWord;
-//         end
-//     end
-//     else begin
-//         TxD_FIFO_wr_en = `WriteDisable;
-//         TxD_FIFO_din = 8'h00;
-//         RxD_FIFO_rd_en = `ReadDisable;
-//         serial_o = `ZeroWord;
-//     end
-// end
+always @(*) begin
+    TxD_FIFO_wr_en = `WriteDisable;
+    TxD_FIFO_din = 8'h00;
+    RxD_FIFO_rd_en = `ReadDisable;
+    serial_o = `ZeroWord;
+    if(is_SerialState) begin            //读取串口状态
+        TxD_FIFO_wr_en = `WriteDisable;
+        TxD_FIFO_din = 8'h00;
+        RxD_FIFO_rd_en = `ReadDisable;
+        serial_o = {{30{1'b0}}, state};
+    end 
+    else if(is_SerialData) begin        //通过串口获取（发送）数据
+        if(mem_we == `WriteDisable) begin   //接收串口数据
+            TxD_FIFO_wr_en = `WriteDisable;
+            TxD_FIFO_din = 8'h00;
+            RxD_FIFO_rd_en = `ReadEnable;
+            serial_o = {{24{1'b0}}, RxD_FIFO_dout};
+        end
+        else begin                              //发送串口数据
+            TxD_FIFO_wr_en = `WriteEnable;
+            TxD_FIFO_din = mem_data_i[7:0];
+            RxD_FIFO_rd_en = `ReadDisable;
+            serial_o = `ZeroWord;
+        end
+    end
+    else begin
+        TxD_FIFO_wr_en = `WriteDisable;
+        TxD_FIFO_din = 8'h00;
+        RxD_FIFO_rd_en = `ReadDisable;
+        serial_o = `ZeroWord;
+    end
+end
 
 
 //处理BaseRam（指令存储器）
 assign base_ram_data = is_base_ram ? ((mem_we == `WriteEnable) ? mem_data_i : 32'hzzzzzzzz) : 32'hzzzzzzzz;
 assign base_ram_o = base_ram_data;      //读取到的BaseRam数据
 
-//当mem阶段需要向BaseRam的地址写入或读取数据时，发生结构冒险
+//当mem阶段需要向BaseRam的地址写入或读取数据时，与if阶段冲突，发生结构冒险
 always @(*) begin
     base_ram_addr = 20'h00000;
     base_ram_be_n = 4'b0000;

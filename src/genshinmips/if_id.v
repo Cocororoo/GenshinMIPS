@@ -6,7 +6,6 @@ IF/ID模块：暂时保存取址阶段取得的指令及其对应地址，
 module if_id(
     input wire                  clk,
     input wire                  rst,
-    input wire[5:0]             stall,    
 
     //来自取址阶段的信号，InstAddrBus表示指令宽度(32)
     input wire [`InstAddrBus]   if_pc,
@@ -14,7 +13,9 @@ module if_id(
 
     //对应译码阶段的信号
     output reg [`InstAddrBus]   id_pc,
-    output reg [`InstBus]       id_inst
+    output reg [`InstBus]       id_inst,
+    
+    input wire[5:0]             stall
 );
 
     always @ (posedge clk) begin
