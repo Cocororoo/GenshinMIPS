@@ -2,7 +2,7 @@
 
 /*顶层模块*/
 
-module GenshinMIPS(
+module genshinmips(
     input wire                  rst,
     input wire                  clk,
 
@@ -56,7 +56,7 @@ if_id if_id0(
     .clk(clk), 
     .rst(rst),
 
-    .if_pc(pc), 
+    .if_pc(rom_addr_o), 
     .if_inst(rom_data_i),
 
     .id_pc(if_id_pc),
@@ -81,7 +81,6 @@ wire [`RegAddrBus]              id_rf_reg2_raddr;
 
 //连接译码阶段ID模块输出与ID/EX模块输入的变量
 wire [`AluOpBus]                id_aluop_o;
-wire [`AluSelBus]               id_alusel_o;
 wire [`RegBus]                  id_reg1_data_o;
 wire [`RegBus]                  id_reg2_data_o;
 wire                            id_we_o;
@@ -110,7 +109,7 @@ wire [`DataAddrBus]             ex_id_last_saddr;
 
 id id0(
     .rst(rst), 
-    .pc_i(if_id_pc),  
+    .id_pc_i(if_id_pc),  
     .inst_i(if_id_inst),
 
 
@@ -138,7 +137,6 @@ id id0(
 
     //送到ID/EX模块的信息
     .aluop_o(id_aluop_o),       
-    .alusel_o(id_alusel_o),
     .reg1_data_o(id_reg1_data_o),         
     .reg2_data_o(id_reg2_data_o),
     .waddr_o(id_waddr_o),             
@@ -153,16 +151,14 @@ id id0(
     //EX阶段存储加载信息
     .ex_last_saddr_i(ex_id_last_saddr),
     .ex_last_sdata_i(ex_id_last_sdata),    
-    .ex_last_laddr_i(ex_we_o),    
+    .ex_last_laddr_i(ex_mem_addr_o),    
 
-    .stallreq(stallreq_from_id),
+    .stallreq(stallreq_from_id)
 
-    .state(state)
 );
 
 //连接ID/EX模块输出与执行阶段EX模块输入的变量
 wire [`AluOpBus]                id_ex_aluop;
-wire [`AluSelBus]               id_ex_alusel;
 wire [`RegBus]                  id_ex_reg1_data;
 wire [`RegBus]                  id_ex_reg2_data;
 wire                            id_ex_we;
@@ -181,7 +177,6 @@ id_ex id_ex0(
 
     //从译码阶段ID模块传递来的信息
     .id_aluop(id_aluop_o),      
-    .id_alusel(id_alusel_o),
     .id_reg1_data(id_reg1_data_o),        
     .id_reg2_data(id_reg2_data_o),
     .id_waddr(id_waddr_o),            
@@ -194,7 +189,8 @@ id_ex id_ex0(
     .ex_alusel(id_ex_alusel),
     .ex_reg1_data(id_ex_reg1_data),        
     .ex_reg2_data(id_ex_reg2_data),
-    .ex_wd(id_ex_waddr),            
+    .ex_waddr(id_ex_waddr),
+    .ex_we(id_ex_we),            
     .ex_link_addr(id_ex_link_addr),
     .ex_inst(id_ex_inst)	
 );
@@ -214,6 +210,7 @@ ex ex0(
     .reg2_i(id_ex_reg2_data),
     .waddr_i(id_ex_waddr),             
     .inst_i(id_ex_inst),
+    .we_i(id_ex_we),
 
     .link_addr_i(id_ex_link_addr),
 

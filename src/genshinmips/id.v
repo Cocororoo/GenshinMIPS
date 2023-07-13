@@ -6,7 +6,7 @@
 
 module id (
     input wire                rst,
-    input wire [`InstAddrBus] pc_i,   //译码阶段指令对应地址
+    input wire [`InstAddrBus] id_pc_i,   //译码阶段指令对应地址
     input wire [    `InstBus] inst_i, //译码阶段的指令
 
     //输出到Regfile的信息
@@ -21,7 +21,6 @@ module id (
 
     //送到EX阶段的信息
     output reg [`AluOpBus] aluop_o,  //译码阶段的指令要进行的运算子类型
-    output reg [`AluSelBus] alusel_o,  //译码阶段的指令要进行的运算类型
     output reg [`RegBus] reg1_data_o,  //译码阶段的指令要进行的运算的源操作数1
     output reg [`RegBus] reg2_data_o,  //译码阶段的指令要进行的运算的源操作数2
     output reg [`RegAddrBus] waddr_o,  //译码阶段的指令要写入的目的地寄存器地址
@@ -52,9 +51,7 @@ module id (
     output reg [`RegBus] link_addr_o,
 
     //中断请求
-    output wire stallreq,
-
-    input wire [1:0] state  //串口状态
+    output wire stallreq
 );
 
   //要读的寄存器是否与上条指令存在load相关
@@ -67,483 +64,448 @@ module id (
   assign inst_o = inst_i;
   assign stallreq = stallreq_for_reg1_loadrelate | stallreq_for_reg2_loadrelate;
 
-  wire [`RegBus] pc_plus_8;
-  wire [`RegBus] pc_plus_4;
-  assign pc_plus_4 = pc_i + 4;
-  assign pc_plus_8 = pc_i + 8;
+    // 提取指令各个字段
+    // R型指令
+    wire[5:0] op            = inst_i[31:26];
+    wire[4:0] rs            = inst_i[25:21];
+    wire[4:0] rt            = inst_i[20:16];
+    wire[4:0] rd            = inst_i[15:11];
+    wire[4:0] shamt         = inst_i[10:6];
+    wire[5:0] func          = inst_i[5:0];
 
-  //分支指令中offset左移两位再符号拓展至32位
-  wire [`RegBus] imm_sll2_signedext;
-  assign imm_sll2_signedext = {{14{inst_i[15]}}, inst_i[15:0], 2'b00};
+    // I型指令
+    wire[15:0] imm          = inst_i[15:0];
 
+    // J型指令
+    wire[25:0] inst_index   = inst_i[25:0];
 
-  //取得指令的指令码、功能码
-  wire [    5:0 ] op = inst_i[31:26];
-  wire [    4:0 ] op2 = inst_i[10:6];
-  wire [    5:0 ] op3 = inst_i[5 : 0];
-  wire [    4:0 ] op4 = inst_i[20:16];
+    // 立即数扩展
+    wire[31:0] imm_u = {{16{1'b0}}, imm};       // 无符号扩展
+    wire[31:0] imm_s = {{16{imm[15]}}, imm};    // 有符号扩展
 
-  //保存指令执行需要的立即数
-  reg  [`RegBus]                       imm;
+    // 跳转地址
+    wire[31:0] next_pc;
+    wire[31:0] jump_addr = {next_pc[31:28], inst_index, 2'b00};
+    wire[31:0] branch_addr = next_pc + {imm_s[29:0], 2'b00};
 
-  //指示指令是否有效
-  reg                                  instvalid;
+    // 选择是有符号扩展还是无符号扩展
+    reg[31:0]   imm_o;
 
+    assign next_pc = id_pc_i + 4'h4;
 
-  /*Part.1 对指令译码*/
-  always @(*) begin
-    if (rst == `RstEnable) begin
-      aluop_o                 = `EXE_NOP_OP;
-      alusel_o                = `EXE_RES_NOP;
-      waddr_o                 = `NOPRegAddr;
-      we_o                    = `WriteDisable;
-      instvalid               = `InstValid;
-      reg1_re_o               = 1'b0;
-      reg2_re_o               = 1'b0;
-      reg1_raddr_o            = `NOPRegAddr;
-      reg2_raddr_o            = `NOPRegAddr;
-      imm                     = 32'h0;
-
-      link_addr_o             = `ZeroWord;
-      branch_flag_o           = `NotBranch;
-      branch_target_address_o = `ZeroWord;
-    end else begin
-      aluop_o                 = `EXE_NOP_OP;
-      alusel_o                = `EXE_RES_NOP;
-      waddr_o                 = inst_i[15:11];
-      we_o                    = `WriteDisable;
-      instvalid               = `InstInvalid;
-      reg1_re_o               = 1'b0;
-      reg2_re_o               = 1'b0;
-      reg1_raddr_o            = inst_i[25:21];
-      reg2_raddr_o            = inst_i[20:16];
-      imm                     = `ZeroWord;
-
-      link_addr_o             = `ZeroWord;
-      branch_flag_o           = `NotBranch;
-      branch_target_address_o = `ZeroWord;
-
-      case (op)  //依据op取值判断指令
-        `EXE_SPECIAL_INST: begin  //指令码是SPECIAL
-          case (op2)
-            5'b00000: begin
-              case (op3)
-                `EXE_OR: begin  //or指令
-                  we_o      = `WriteEnable;
-                  aluop_o   = `EXE_OR_OP;
-                  alusel_o  = `EXE_RES_LOGIC;
-                  reg1_re_o = 1'b1;
-                  reg2_re_o = 1'b1;
-                  instvalid = `InstValid;
-                end
-                `EXE_AND: begin  //and指令
-                  we_o      = `WriteEnable;
-                  aluop_o   = `EXE_AND_OP;
-                  alusel_o  = `EXE_RES_LOGIC;
-                  reg1_re_o = 1'b1;
-                  reg2_re_o = 1'b1;
-                  instvalid = `InstValid;
-                end
-                `EXE_XOR: begin  //xor指令
-                  we_o      = `WriteEnable;
-                  aluop_o   = `EXE_XOR_OP;
-                  alusel_o  = `EXE_RES_LOGIC;
-                  reg1_re_o = 1'b1;
-                  reg2_re_o = 1'b1;
-                  instvalid = `InstValid;
-                end
-                `EXE_NOR: begin  //nor指令
-                  we_o      = `WriteEnable;
-                  aluop_o   = `EXE_NOR_OP;
-                  alusel_o  = `EXE_RES_LOGIC;
-                  reg1_re_o = 1'b1;
-                  reg2_re_o = 1'b1;
-                  instvalid = `InstValid;
-                end
-                `EXE_SLLV: begin  //sllv指令
-                  we_o      = `WriteEnable;
-                  aluop_o   = `EXE_SLL_OP;
-                  alusel_o  = `EXE_RES_SHIFT;
-                  reg1_re_o = 1'b1;
-                  reg2_re_o = 1'b1;
-                  instvalid = `InstValid;
-                end
-                `EXE_SRLV: begin  //srlv指令
-                  we_o      = `WriteEnable;
-                  aluop_o   = `EXE_SRL_OP;
-                  alusel_o  = `EXE_RES_SHIFT;
-                  reg1_re_o = 1'b1;
-                  reg2_re_o = 1'b1;
-                  instvalid = `InstValid;
-                end
-                `EXE_SRAV: begin  //srav指令
-                  we_o      = `WriteEnable;
-                  aluop_o   = `EXE_SRA_OP;
-                  alusel_o  = `EXE_RES_SHIFT;
-                  reg1_re_o = 1'b1;
-                  reg2_re_o = 1'b1;
-                  instvalid = `InstValid;
-                end
-
-                `EXE_SLT: begin  // slt指令
-                  we_o      = `WriteEnable;
-                  aluop_o   = `EXE_SLT_OP;
-                  alusel_o  = `EXE_RES_ARITHMETIC;
-                  reg1_re_o = 1'b1;
-                  reg2_re_o = 1'b1;
-                  instvalid = `InstValid;
-                end
-                `EXE_SLTU: begin  // sltu指令
-                  we_o      = `WriteEnable;
-                  aluop_o   = `EXE_SLTU_OP;
-                  alusel_o  = `EXE_RES_ARITHMETIC;
-                  reg1_re_o = 1'b1;
-                  reg2_re_o = 1'b1;
-                  instvalid = `InstValid;
-                end
-                `EXE_ADD: begin  // add指令
-                  we_o      = `WriteEnable;
-                  aluop_o   = `EXE_ADD_OP;
-                  alusel_o  = `EXE_RES_ARITHMETIC;
-                  reg1_re_o = 1'b1;
-                  reg2_re_o = 1'b1;
-                  instvalid = `InstValid;
-                end
-                `EXE_ADDU: begin  // addu指令
-                  we_o      = `WriteEnable;
-                  aluop_o   = `EXE_ADDU_OP;
-                  alusel_o  = `EXE_RES_ARITHMETIC;
-                  reg1_re_o = 1'b1;
-                  reg2_re_o = 1'b1;
-                  instvalid = `InstValid;
-                end
-                `EXE_SUB: begin  // sub指令
-                  we_o      = `WriteEnable;
-                  aluop_o   = `EXE_SUB_OP;
-                  alusel_o  = `EXE_RES_ARITHMETIC;
-                  reg1_re_o = 1'b1;
-                  reg2_re_o = 1'b1;
-                  instvalid = `InstValid;
-                end
-                `EXE_SUBU: begin  // subu指令
-                  we_o      = `WriteEnable;
-                  aluop_o   = `EXE_SUBU_OP;
-                  alusel_o  = `EXE_RES_ARITHMETIC;
-                  reg1_re_o = 1'b1;
-                  reg2_re_o = 1'b1;
-                  instvalid = `InstValid;
-                end
-
-                `EXE_JR: begin  // jr指令
-                  we_o                    = `WriteDisable;
-                  aluop_o                 = `EXE_JR_OP;
-                  alusel_o                = `EXE_RES_JUMP_BRANCH;
-                  reg1_re_o               = 1'b1;
-                  reg2_re_o               = 1'b0;
-                  instvalid               = `InstValid;
-                  link_addr_o             = `ZeroWord;
-                  branch_flag_o           = `Branch;
-                  branch_target_address_o = reg1_data_o;
-                end
-                `EXE_JALR: begin  // jalr指令
-                  we_o                    = `WriteEnable;
-                  aluop_o                 = `EXE_JALR_OP;
-                  alusel_o                = `EXE_RES_JUMP_BRANCH;
-                  reg1_re_o               = 1'b1;
-                  reg2_re_o               = 1'b0;
-                  instvalid               = `InstValid;
-                  waddr_o                 = inst_i[15:11];
-                  link_addr_o             = pc_plus_8;
-                  branch_flag_o           = `Branch;
-                  branch_target_address_o = reg1_data_o;
-                end
-                default begin
-                end
-              endcase
+    //译码
+    always @(*) begin
+        if(rst == `RstEnable) begin
+            aluop_o = `EXE_NOP_OP;
+            reg1_re_o = `ReadDisable;
+            reg1_raddr_o = `NOPRegAddr;
+            reg2_re_o = `ReadDisable;
+            reg2_raddr_o = `NOPRegAddr;
+            we_o = `WriteDisable;
+            waddr_o = `NOPRegAddr;
+            imm_o = `ZeroWord;
+        end else begin 
+            aluop_o = `EXE_NOP_OP;
+            reg1_re_o = `ReadDisable;
+            reg1_raddr_o = rs;
+            reg2_re_o = `ReadDisable;
+            reg2_raddr_o = rt;
+            we_o = `WriteDisable;
+            waddr_o = rd;
+            imm_o = `ZeroWord;
+        end
+        case(op)
+            `ADDIU_OP,
+            `ADDI_OP: begin
+                aluop_o = `EXE_ADD_OP;
+                reg1_re_o = `ReadEnable;
+                reg2_re_o = `ReadDisable;
+                we_o = `WriteEnable;
+                waddr_o = rt;
+                imm_o = imm_s;
+            end        
+            `SLTI_OP: begin
+                aluop_o = `EXE_SLT_OP;
+                reg1_re_o = `ReadEnable;
+                reg2_re_o = `ReadDisable;
+                we_o = `WriteEnable;
+                waddr_o = rt;
+                imm_o = imm_s;
             end
-            default begin
+            `SLTIU_OP: begin
+                aluop_o = `EXE_SLTU_OP;
+                reg1_re_o = `ReadEnable;
+                reg2_re_o = `ReadDisable;
+                we_o = `WriteEnable;
+                waddr_o = rt;
+                imm_o = imm_s;
             end
-          endcase  //case op2
-        end
-        `EXE_ORI: begin  //ori指令  
-          //ori指令需要写入结果
-          we_o      = `WriteEnable;
-          //运算子类型为逻辑或
-          aluop_o   = `EXE_OR_OP;
-          //运算类型是逻辑运算
-          alusel_o  = `EXE_RES_LOGIC;
-          //通过Regfile的读端口1读取寄存器
-          reg1_re_o = 1'b1;
-          //用不到读端口2
-          reg2_re_o = 1'b0;
-          //指令执行需要的立即数
-          imm       = {16'h0, inst_i[15:0]};
-          //指令执行写入目的寄存器地址
-          waddr_o   = inst_i[20:16];
-          //ori指令是有效指令
-          instvalid = `InstValid;
-        end
-        `EXE_ANDI: begin  //andi指令
-          we_o      = `WriteEnable;
-          aluop_o   = `EXE_AND_OP;
-          alusel_o  = `EXE_RES_LOGIC;
-          reg1_re_o = 1'b1;
-          reg2_re_o = 1'b0;
-          imm       = {16'h0, inst_i[15:0]};
-          waddr_o   = inst_i[20:16];
-          instvalid = `InstValid;
-        end
-        `EXE_XORI: begin  //xori指令
-          we_o      = `WriteEnable;
-          aluop_o   = `EXE_XOR_OP;
-          alusel_o  = `EXE_RES_LOGIC;
-          reg1_re_o = 1'b1;
-          reg2_re_o = 1'b0;
-          imm       = {16'h0, inst_i[15:0]};
-          waddr_o   = inst_i[20:16];
-          instvalid = `InstValid;
-        end
-        `EXE_LUI: begin  //lui指令
-          we_o      = `WriteEnable;
-          aluop_o   = `EXE_OR_OP;
-          alusel_o  = `EXE_RES_LOGIC;
-          reg1_re_o = 1'b1;
-          reg2_re_o = 1'b0;
-          imm       = {inst_i[15:0], 16'h0};
-          waddr_o   = inst_i[20:16];
-          instvalid = `InstValid;
-        end
-        `EXE_SLTI: begin  // slti指令
-          we_o      = `WriteEnable;
-          aluop_o   = `EXE_SLT_OP;
-          alusel_o  = `EXE_RES_ARITHMETIC;
-          reg1_re_o = 1'b1;
-          reg2_re_o = 1'b0;
-          imm       = {{16{inst_i[15]}}, inst_i[15:0]};
-          waddr_o   = inst_i[20:16];
-          instvalid = `InstValid;
-        end
-        `EXE_SLTIU: begin  // sltiu指令
-          we_o      = `WriteEnable;
-          aluop_o   = `EXE_SLTU_OP;
-          alusel_o  = `EXE_RES_ARITHMETIC;
-          reg1_re_o = 1'b1;
-          reg2_re_o = 1'b0;
-          imm       = {{16{inst_i[15]}}, inst_i[15:0]};
-          waddr_o   = inst_i[20:16];
-          instvalid = `InstValid;
-        end
-        `EXE_ADDI: begin  // addi指令
-          we_o      = `WriteEnable;
-          aluop_o   = `EXE_ADDI_OP;
-          alusel_o  = `EXE_RES_ARITHMETIC;
-          reg1_re_o = 1'b1;
-          reg2_re_o = 1'b0;
-          imm       = {{16{inst_i[15]}}, inst_i[15:0]};
-          waddr_o   = inst_i[20:16];
-          instvalid = `InstValid;
-        end
-        `EXE_ADDIU: begin  // addiu指令
-          we_o      = `WriteEnable;
-          aluop_o   = `EXE_ADDIU_OP;
-          alusel_o  = `EXE_RES_ARITHMETIC;
-          reg1_re_o = 1'b1;
-          reg2_re_o = 1'b0;
-          imm       = {{16{inst_i[15]}}, inst_i[15:0]};
-          waddr_o   = inst_i[20:16];
-          instvalid = `InstValid;
-        end
-
-        `EXE_J: begin
-          we_o                    = `WriteDisable;
-          aluop_o                 = `EXE_J_OP;
-          alusel_o                = `EXE_RES_JUMP_BRANCH;
-          reg1_re_o               = 1'b0;
-          reg2_re_o               = 1'b0;
-          link_addr_o             = `ZeroWord;
-          branch_target_address_o = {pc_plus_4[31:28], inst_i[25:0], 2'b00};
-          branch_flag_o           = `Branch;
-          instvalid               = `InstValid;
-        end
-        `EXE_JAL: begin
-          we_o                    = `WriteEnable;
-          aluop_o                 = `EXE_JAL_OP;
-          alusel_o                = `EXE_RES_JUMP_BRANCH;
-          reg1_re_o               = 1'b0;
-          reg2_re_o               = 1'b0;
-          waddr_o                 = 5'b11111;
-          link_addr_o             = pc_plus_8;
-          branch_target_address_o = {pc_plus_4[31:28], inst_i[25:0], 2'b00};
-          branch_flag_o           = `Branch;
-          instvalid               = `InstValid;
-        end
-        `EXE_BEQ: begin
-          we_o      = `WriteDisable;
-          aluop_o   = `EXE_BEQ_OP;
-          alusel_o  = `EXE_RES_JUMP_BRANCH;
-          reg1_re_o = 1'b1;
-          reg2_re_o = 1'b1;
-          instvalid = `InstValid;
-          if (reg1_data_o == reg2_data_o) begin
-            branch_target_address_o = pc_plus_4 + imm_sll2_signedext;
-            branch_flag_o           = `Branch;
-          end
-        end
-        `EXE_BGTZ: begin
-          we_o      = `WriteDisable;
-          aluop_o   = `EXE_BGTZ_OP;
-          alusel_o  = `EXE_RES_JUMP_BRANCH;
-          reg1_re_o = 1'b1;
-          reg2_re_o = 1'b0;
-          instvalid = `InstValid;
-          if ((reg1_data_o[31] == 1'b0) && (reg1_data_o != `ZeroWord)) begin
-            branch_target_address_o = pc_plus_4 + imm_sll2_signedext;
-            branch_flag_o           = `Branch;
-          end
-        end
-        `EXE_BLEZ: begin
-          we_o      = `WriteDisable;
-          aluop_o   = `EXE_BLEZ_OP;
-          alusel_o  = `EXE_RES_JUMP_BRANCH;
-          reg1_re_o = 1'b1;
-          reg2_re_o = 1'b0;
-          instvalid = `InstValid;
-          if ((reg1_data_o[31] == 1'b1) || (reg1_data_o == `ZeroWord)) begin
-            branch_target_address_o = pc_plus_4 + imm_sll2_signedext;
-            branch_flag_o           = `Branch;
-          end
-        end
-        `EXE_BNE: begin
-          we_o      = `WriteDisable;
-          aluop_o   = `EXE_BLEZ_OP;
-          alusel_o  = `EXE_RES_JUMP_BRANCH;
-          reg1_re_o = 1'b1;
-          reg2_re_o = 1'b1;
-          instvalid = `InstValid;
-          if (reg1_data_o != reg2_data_o) begin
-            branch_target_address_o = pc_plus_4 + imm_sll2_signedext;
-            branch_flag_o           = `Branch;
-          end
-        end
-
-        `EXE_LB: begin
-          we_o      = `WriteEnable;
-          aluop_o   = `EXE_LB_OP;
-          alusel_o  = `EXE_RES_LOAD_STORE;
-          reg1_re_o = 1'b1;
-          reg2_re_o = 1'b0;
-          waddr_o   = inst_i[20:16];
-          instvalid = `InstValid;
-        end
-        `EXE_LW: begin
-          we_o      = `WriteEnable;
-          aluop_o   = `EXE_LW_OP;
-          alusel_o  = `EXE_RES_LOAD_STORE;
-          reg1_re_o = 1'b1;
-          reg2_re_o = 1'b0;
-          waddr_o   = inst_i[20:16];
-          instvalid = `InstValid;
-        end
-        `EXE_SB: begin
-          we_o      = `WriteDisable;
-          aluop_o   = `EXE_SB_OP;
-          reg1_re_o = 1'b1;
-          reg2_re_o = 1'b1;
-          instvalid = `InstValid;
-          alusel_o  = `EXE_RES_LOAD_STORE;
-        end
-        `EXE_SW: begin
-          we_o      = `WriteDisable;
-          aluop_o   = `EXE_SW_OP;
-          reg1_re_o = 1'b1;
-          reg2_re_o = 1'b1;
-          instvalid = `InstValid;
-          alusel_o  = `EXE_RES_LOAD_STORE;
-        end
-
-        `EXE_REGIMM_INST: begin
-          case (op4)
-            `EXE_BGEZ: begin
-              we_o      = `WriteDisable;
-              aluop_o   = `EXE_BGEZ_OP;
-              alusel_o  = `EXE_RES_JUMP_BRANCH;
-              reg1_re_o = 1'b1;
-              reg2_re_o = 1'b0;
-              instvalid = `InstValid;
-              if (reg1_data_o[31] == 1'b0) begin
-                branch_target_address_o = pc_plus_4 + imm_sll2_signedext;
-                branch_flag_o           = `Branch;
-              end
+            `MUL_OP: begin
+                if(shamt == 5'b00000) begin
+                    case(func)
+                        `MUL_FUNC: begin
+                            aluop_o = `EXE_MUL_OP;
+                            reg1_re_o = `ReadEnable;
+                            reg2_re_o = `ReadEnable;
+                            we_o = `WriteEnable;
+                        end
+                        default :begin
+                        end
+                    endcase
+                end else begin
+                end
             end
-            `EXE_BLTZ: begin
-              we_o      = `WriteDisable;
-              aluop_o   = `EXE_BGEZAL_OP;
-              alusel_o  = `EXE_RES_JUMP_BRANCH;
-              reg1_re_o = 1'b1;
-              reg2_re_o = 1'b0;
-              instvalid = `InstValid;
-              if (reg1_data_o[31] == 1'b1) begin
-                branch_target_address_o = pc_plus_4 + imm_sll2_signedext;
-                branch_flag_o           = `Branch;
-              end
-            end
-            default: begin
-            end
-          endcase
-        end
 
-        `EXE_SPECIAL2_INST: begin
-          case (op3)
-            `EXE_MUL: begin
-              we_o = `WriteEnable;
-              aluop_o = `EXE_MUL_OP;
-              alusel_o = `EXE_RES_MUL;
-              reg1_re_o = 1'b1;
-              reg2_re_o = 1'b1;
-              instvalid = `InstValid;
+            `ANDI_OP: begin
+                aluop_o = `EXE_AND_OP;
+                reg1_re_o = `ReadEnable;
+                reg2_re_o = `ReadDisable;
+                we_o = `WriteEnable;
+                waddr_o = rt;
+                imm_o = imm_u;
+            end       
+            `LUI_OP: begin
+                aluop_o = `EXE_OR_OP;
+                reg1_re_o = `ReadEnable;
+                reg2_re_o = `ReadDisable;
+                we_o = `WriteEnable;
+                waddr_o = rt;
+                imm_o = {imm, 16'h0000};
+            end        
+            `ORI_OP: begin
+                aluop_o = `EXE_OR_OP;
+                reg1_re_o = `ReadEnable;
+                reg2_re_o = `ReadDisable;
+                we_o = `WriteEnable;
+                waddr_o = rt;
+                imm_o = imm_u;
+            end         
+            `XORI_OP: begin
+                aluop_o = `EXE_XOR_OP;
+                reg1_re_o = `ReadEnable;
+                reg2_re_o = `ReadDisable;
+                we_o = `WriteEnable;
+                waddr_o = rt;
+                imm_o = imm_u;
             end
-            default: begin
+
+            `BEQ_OP: begin
+                reg1_re_o = `ReadEnable;
+                reg2_re_o = `ReadEnable;
+                we_o = `WriteDisable;
             end
-          endcase  //EXE_SPECIAL_INST2 case
-        end
-        default: begin
+            `BNE_OP: begin
+                reg1_re_o = `ReadEnable;
+                reg2_re_o = `ReadEnable;
+                we_o = `WriteDisable;
+            end        
+            `BGTZ_OP: begin
+                reg1_re_o = `ReadEnable;
+                reg2_re_o = `ReadDisable;
+                we_o = `WriteDisable;
+            end
+            `BLEZ_OP: begin 
+                reg1_re_o = `ReadEnable;
+                reg2_re_o = `ReadDisable;
+                we_o = `WriteDisable;
+            end
+            `J_OP: begin
+                reg1_re_o = `ReadDisable;
+                reg2_re_o = `ReadDisable;
+                we_o = `WriteDisable;
+            end        
+            `JAL_OP:begin
+                aluop_o = `EXE_JAL_OP;
+                reg1_re_o = `ReadDisable;
+                reg2_re_o = `ReadDisable;
+                we_o = `WriteEnable;
+                waddr_o = 5'b11111;
+            end
 
-        end
+            `LB_OP: begin
+                aluop_o = `EXE_LB_OP;
+                reg1_re_o = `ReadEnable;
+                reg2_re_o = `ReadDisable;
+                we_o = `WriteEnable;
+                waddr_o = rt;
+                imm_o = imm_s;
+            end         
+            `LW_OP: begin
+                aluop_o = `EXE_LW_OP;
+                reg1_re_o = `ReadEnable;
+                reg2_re_o = `ReadDisable;
+                we_o = `WriteEnable;
+                waddr_o = rt;
+                imm_o = imm_s;
+            end         
+            `SB_OP: begin
+                aluop_o = `EXE_SB_OP;
+                reg1_re_o = `ReadEnable;
+                reg2_re_o = `ReadEnable;
+                we_o = `WriteDisable;
+            end           
+            `SW_OP: begin
+                aluop_o = `EXE_SW_OP;
+                reg1_re_o = `ReadEnable;
+                reg2_re_o = `ReadEnable;
+                we_o = `WriteDisable;
+            end           
 
-      endcase  //case op
+            `R_OP: begin
+                if(shamt == 5'b00000) begin
+                    case(func)
+                        `ADDU_FUNC,
+                        `ADD_FUNC: begin
+                            aluop_o = `EXE_ADD_OP;
+                            reg1_re_o = `ReadEnable;
+                            reg2_re_o = `ReadEnable;
+                            we_o = `WriteEnable;
+                        end
+                        `SUBU_FUNC,
+                        `SUB_FUNC: begin
+                            aluop_o = `EXE_SUB_OP;
+                            reg1_re_o = `ReadEnable;
+                            reg2_re_o = `ReadEnable;
+                            we_o = `WriteEnable;
+                        end
+                        `SLT_FUNC: begin
+                            aluop_o = `EXE_SLT_OP;
+                            reg1_re_o = `ReadEnable;
+                            reg2_re_o = `ReadEnable;
+                            we_o = `WriteEnable;
+                        end
+                        `SLTU_FUNC: begin
+                            aluop_o = `EXE_SLTU_OP;
+                            reg1_re_o = `ReadEnable;
+                            reg2_re_o = `ReadEnable;
+                            we_o = `WriteEnable;
+                        end
 
-      if (inst_i[31:21] == 11'b00000000000) begin
-        if (op3 == `EXE_SLL) begin  //sll指令 
-          we_o      = `WriteEnable;
-          aluop_o   = `EXE_SLL_OP;
-          alusel_o  = `EXE_RES_SHIFT;
-          reg1_re_o = 1'b0;
-          reg2_re_o = 1'b1;
-          imm[4:0]  = inst_i[10:6];
-          waddr_o   = inst_i[15:11];
-          instvalid = `InstValid;
-        end else if (op3 == `EXE_SRL) begin  //srl指令 
-          we_o      = `WriteEnable;
-          aluop_o   = `EXE_SRL_OP;
-          alusel_o  = `EXE_RES_SHIFT;
-          reg1_re_o = 1'b0;
-          reg2_re_o = 1'b1;
-          imm[4:0]  = inst_i[10:6];
-          waddr_o   = inst_i[15:11];
-          instvalid = `InstValid;
-        end else if (op3 == `EXE_SRA) begin  //sra指令 
-          we_o      = `WriteEnable;
-          aluop_o   = `EXE_SRA_OP;
-          alusel_o  = `EXE_RES_SHIFT;
-          reg1_re_o = 1'b0;
-          reg2_re_o = 1'b1;
-          imm[4:0]  = inst_i[10:6];
-          waddr_o   = inst_i[15:11];
-          instvalid = `InstValid;
+                        `AND_FUNC: begin
+                            aluop_o = `EXE_AND_OP;
+                            reg1_re_o = `ReadEnable;
+                            reg2_re_o = `ReadEnable;
+                            we_o = `WriteEnable;
+                        end  
+                        `OR_FUNC: begin
+                            aluop_o = `EXE_OR_OP;
+                            reg1_re_o = `ReadEnable;
+                            reg2_re_o = `ReadEnable;
+                            we_o = `WriteEnable;
+                        end   
+                        `XOR_FUNC: begin
+                            aluop_o = `EXE_XOR_OP;
+                            reg1_re_o = `ReadEnable;
+                            reg2_re_o = `ReadEnable;
+                            we_o = `WriteEnable;
+                        end   
+                        `NOR_FUNC: begin
+                            aluop_o = `EXE_NOR_OP;
+                            reg1_re_o = `ReadEnable;
+                            reg2_re_o = `ReadEnable;
+                            we_o = `WriteEnable;
+                        end
+
+                        `SLLV_FUNC: begin
+                            aluop_o = `EXE_SLL_OP;
+                            reg1_re_o = `ReadEnable;
+                            reg2_re_o = `ReadEnable;
+                            we_o = `WriteEnable;
+                        end  
+                        `SRAV_FUNC: begin
+                            aluop_o = `EXE_SRA_OP;
+                            reg1_re_o = `ReadEnable;
+                            reg2_re_o = `ReadEnable;
+                            we_o = `WriteEnable;
+                        end
+                        `SRLV_FUNC :begin
+                            aluop_o = `EXE_SRL_OP;
+                            reg1_re_o = `ReadEnable;
+                            reg2_re_o = `ReadEnable;
+                            we_o = `WriteEnable;
+                        end 
+
+                        `JR_FUNC: begin
+                            reg1_re_o = `ReadEnable;
+                            reg2_re_o = `ReadDisable;
+                            we_o = `WriteDisable;
+                        end
+                        `JALR_FUNC: begin
+                            aluop_o = `EXE_JAL_OP;
+                            reg1_re_o = `ReadEnable;
+                            reg2_re_o = `ReadDisable;
+                            we_o = `WriteEnable;
+                        end
+                        default : begin
+                        end
+                    endcase
+                end else if(rs == 5'b00000) begin
+                    case(func)
+                        `SLL_FUNC: begin
+                            aluop_o = `EXE_SLL_OP;
+                            reg1_re_o = `ReadDisable;
+                            reg2_re_o = `ReadEnable;
+                            we_o = `WriteEnable;
+                            waddr_o = rd;
+                            imm_o[4:0] = shamt;
+                        end   
+                        `SRL_FUNC: begin
+                            aluop_o = `EXE_SRL_OP;
+                            reg1_re_o = `ReadDisable;
+                            reg2_re_o = `ReadEnable;
+                            we_o = `WriteEnable;
+                            waddr_o = rd;
+                            imm_o[4:0] = shamt;
+                        end
+                        `SRA_FUNC: begin
+                            aluop_o = `EXE_SRA_OP;
+                            reg1_re_o = `ReadDisable;
+                            reg2_re_o = `ReadEnable;
+                            we_o = `WriteEnable;
+                            waddr_o = rd;
+                            imm_o[4:0] = shamt;
+                        end
+                        default : begin
+                        end
+                    endcase
+                end else begin
+                end    
+            end       
+
+            `SPECIAL_OP: begin
+                case(rt)
+                    `BLTZ_RT,
+                    `BGEZ_RT: begin
+                        reg1_re_o = `ReadEnable;
+                        reg2_re_o = `ReadDisable;
+                        we_o = `WriteDisable;
+                    end
+                    `BLTZAL_RT,
+                    `BGEZAL_RT: begin
+                        aluop_o = `EXE_JAL_OP;
+                        reg1_re_o = `ReadEnable;
+                        reg2_re_o = `ReadDisable;
+                        we_o = `WriteDisable;
+                    end
+                    default : begin
+                    end
+                endcase
+            end       
+            default : begin
+            end
+        endcase
+    end
+
+
+    //确定是否跳转及跳转地址
+    always @(*) begin
+        if(rst == `RstEnable) begin
+            branch_flag_o = `NotBranch;
+            branch_target_address_o = `ZeroWord;
+            link_addr_o = `ZeroWord;
+        end else begin
+            branch_flag_o = `NotBranch;
+            branch_target_address_o = `ZeroWord;
+            link_addr_o = `ZeroWord;
         end
-      end  //if (inst_i[31:21] == 11'b00000000000)
-    end  //if
-  end  //always
+        case(op)
+            `BEQ_OP: begin
+                if(reg1_data_o == reg2_data_o) begin
+                    branch_flag_o = `Branch;
+                    branch_target_address_o = branch_addr;
+                end else begin 
+                end
+            end
+            `BNE_OP: begin
+                if(reg1_data_o != reg2_data_o) begin
+                    branch_flag_o = `Branch;
+                    branch_target_address_o = branch_addr;
+                end else begin
+                end
+            end        
+            `BGTZ_OP: begin
+                if(reg1_data_o[31] == 1'b0 && reg1_data_o != `ZeroWord) begin
+                    branch_flag_o = `Branch;
+                    branch_target_address_o = branch_addr;
+                end else begin
+                end
+            end
+            `BLEZ_OP: begin 
+                if(reg1_data_o[31] == 1'b1 || reg1_data_o == `ZeroWord) begin
+                    branch_flag_o = `Branch;
+                    branch_target_address_o = branch_addr;
+                end else begin
+                end
+            end
+            `J_OP: begin
+                branch_flag_o = `Branch;
+                branch_target_address_o = jump_addr;
+            end        
+            `JAL_OP: begin
+                branch_flag_o = `Branch;
+                branch_target_address_o = jump_addr;
+                link_addr_o = next_pc + 4'h4;
+            end
+            `R_OP: begin
+                if(shamt == 5'b00000) begin
+                    case(func) 
+                        `JR_FUNC: begin
+                            branch_flag_o = `Branch;
+                            branch_target_address_o = reg1_data_o;
+                        end
+                        `JALR_FUNC: begin
+                            branch_flag_o = `Branch;
+                            branch_target_address_o = reg1_data_o;
+                            link_addr_o = next_pc + 4'h4;
+                        end
+                    default:	begin
+                        end
+                    endcase
+                end
+            end
+            `SPECIAL_OP: begin
+                case(rt)
+                    `BGEZ_RT: begin
+                        if(reg1_data_o[31] == 1'b0) begin
+                            branch_flag_o = `Branch;
+                            branch_target_address_o = branch_addr;
+                        end else begin
+                        end
+                    end
+                    `BLTZ_RT: begin
+                        if(reg1_data_o[31] == 1'b1) begin
+                            branch_flag_o = `Branch;
+                            branch_target_address_o = branch_addr;
+                        end else begin
+                        end
+                    end
+                    `BGEZAL_RT: begin
+                        if(reg1_data_o[31] == 1'b0) begin
+                            branch_flag_o = `Branch;
+                            branch_target_address_o = branch_addr;
+                            link_addr_o = next_pc + 4'h4;
+                        end else begin
+                        end
+                    end
+                    `BLTZAL_RT: begin
+                        if(reg1_data_o[31] == 1'b1) begin
+                            branch_flag_o = `Branch;
+                            branch_target_address_o = branch_addr;
+                            link_addr_o = next_pc + 4'h4;
+                        end else begin
+                        end
+                    end
+                    default : begin
+                    end
+                endcase
+            end       
+            default :begin
+                branch_flag_o = `NotBranch;
+                branch_target_address_o = `ZeroWord;
+                link_addr_o = `ZeroWord;
+            end
+        endcase
+    end
 
 
   /*Part.2 确定进行运算的源操作数1*/
