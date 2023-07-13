@@ -515,7 +515,7 @@ module id (
     if (rst == `RstEnable) begin
       reg1_data_o = `ZeroWord;
     end else if(pre_inst_is_load == 1'b1 && ex_waddr_i == reg1_raddr_o 
-			&& reg1_data_o == 1'b1 && ex_last_laddr_i == ex_last_saddr_i) begin
+			&& reg1_re_o == 1'b1 && ex_last_laddr_i == ex_last_saddr_i) begin
       reg1_data_o = ex_last_sdata_i;
       //发生load冒险需要暂停流水线
     end else if (pre_inst_is_load == 1'b1 && ex_waddr_i == reg1_raddr_o && reg1_re_o == 1'b1) begin
@@ -540,7 +540,7 @@ module id (
     if (rst == `RstEnable) begin
       reg2_data_o = `ZeroWord;
     end else if(pre_inst_is_load == 1'b1 && ex_waddr_i == reg2_raddr_o 
-			&& reg2_data_o == 1'b1 && ex_last_laddr_i == ex_last_saddr_i) begin
+			&& reg2_re_o == 1'b1 && ex_last_laddr_i == ex_last_saddr_i) begin
       reg2_data_o = ex_last_sdata_i;
     end else if (pre_inst_is_load == 1'b1 && ex_waddr_i == reg2_raddr_o && reg2_re_o == 1'b1) begin
       stallreq_for_reg2_loadrelate = `Stop;

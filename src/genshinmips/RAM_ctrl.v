@@ -54,9 +54,6 @@ module RAM_ctrl (
     output   wire[1:0]   state                //串口状态
 );
 
-wire [3:0] mem_sel_n;
-assign mem_sel_n = ~mem_sel;
-
 wire [7:0]  RxD_data;           //接收到的数据
 wire [7:0]  TxD_data;           //待发送的数据
 wire        RxD_data_ready;     //接收器收到数据完成之后，置为1
@@ -79,7 +76,7 @@ wire        TxD_FIFO_empty;
 wire [7:0]  TxD_FIFO_dout;
 
 //串口实例化模块，波特率9600，仿真时可改为50000000
-async_receiver #(.ClkFrequency(40000000),.Baud(9600))   //接收模块
+async_receiver #(.ClkFrequency(59000000),.Baud(9600))   //接收模块
                 ext_uart_r(
                    .clk(clk),                           //外部时钟信号
                    .RxD(rxd),                           //外部串行信号输入
@@ -88,7 +85,7 @@ async_receiver #(.ClkFrequency(40000000),.Baud(9600))   //接收模块
                    .RxD_data(RxD_data)                  //接收到的一字节数据
                 );
 
-async_transmitter #(.ClkFrequency(40000000),.Baud(9600)) //发送模块
+async_transmitter #(.ClkFrequency(59000000),.Baud(9600)) //发送模块
                     ext_uart_t(
                       .clk(clk),                        //外部时钟信号
                       .TxD(txd),                        //串行信号输出
@@ -195,7 +192,7 @@ always @(*) begin
     rom_data_o = `ZeroWord;
     if(is_base_ram) begin           //涉及到BaseRam的相关数据操作，需要暂停流水线
         base_ram_addr = mem_addr_i[21:2];   //有对齐要求，低两位舍去
-        base_ram_be_n = mem_sel_n;
+        base_ram_be_n = !mem_sel;
         base_ram_ce_n = 1'b0;
         base_ram_oe_n = mem_we;
         base_ram_we_n = !mem_we;
@@ -223,7 +220,7 @@ always @(*) begin
     ext_ram_we_n = 1'b1;
     if(is_ext_ram) begin           //涉及到extRam的相关数据操作
         ext_ram_addr = mem_addr_i[21:2];    //有对齐要求，低两位舍去
-        ext_ram_be_n = mem_sel_n;
+        ext_ram_be_n = !mem_sel;
         ext_ram_ce_n = 1'b0;
         ext_ram_oe_n = mem_we;
         ext_ram_we_n = !mem_we;
@@ -243,20 +240,20 @@ always @(*) begin
     if(is_SerialState || is_SerialData ) begin
         ram_data_o = serial_o;
     end else if (is_base_ram) begin
-        case (mem_sel_n)
-            4'b1110: begin
+        case (mem_sel)
+            4'b0001: begin
                 ram_data_o = {{24{base_ram_o[7]}}, base_ram_o[7:0]};
             end
-            4'b1101: begin
+            4'b0010: begin
                 ram_data_o = {{24{base_ram_o[15]}}, base_ram_o[15:8]};
             end
-            4'b1011: begin
+            4'b0100: begin
                 ram_data_o = {{24{base_ram_o[23]}}, base_ram_o[23:16]};
             end
-            4'b0111: begin
+            4'b1000: begin
                 ram_data_o = {{24{base_ram_o[31]}}, base_ram_o[31:24]};
             end
-            4'b0000: begin
+            4'b1111: begin
                 ram_data_o = base_ram_o;
             end
             default: begin
@@ -264,20 +261,20 @@ always @(*) begin
             end
         endcase
     end else if (is_ext_ram) begin
-        case (mem_sel_n)
-            4'b1110: begin
+        case (mem_sel)
+            4'b0001: begin
                 ram_data_o = {{24{ext_ram_o[7]}}, ext_ram_o[7:0]};
             end
-            4'b1101: begin
+            4'b0010: begin
                 ram_data_o = {{24{ext_ram_o[15]}}, ext_ram_o[15:8]};
             end
-            4'b1011: begin
+            4'b0100: begin
                 ram_data_o = {{24{ext_ram_o[23]}}, ext_ram_o[23:16]};
             end
-            4'b0111: begin
+            4'b1000: begin
                 ram_data_o = {{24{ext_ram_o[31]}}, ext_ram_o[31:24]};
             end
-            4'b0000: begin
+            4'b1111: begin
                 ram_data_o = ext_ram_o;
             end
             default: begin

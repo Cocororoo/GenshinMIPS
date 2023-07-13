@@ -30,12 +30,14 @@ module mem_wb (
       wb_we      <= `WriteDisable;
       wb_wdata   <= `ZeroWord;
       debug_pc_o <= `ZeroWord;
-    end else if (stall[4] == `Stop && stall[5] == `NoStop) begin
-      wb_waddr   <= `NOPRegAddr;
-      wb_we      <= `WriteDisable;
-      wb_wdata   <= `ZeroWord;
-      debug_pc_o <= `ZeroWord;
-    end else if (stall[4] == `NoStop) begin
+    end 
+    // else if (stall[4] == `Stop && stall[5] == `NoStop) begin
+    //   wb_waddr   <= `NOPRegAddr;
+    //   wb_we      <= `WriteDisable;
+    //   wb_wdata   <= `ZeroWord;
+    //   debug_pc_o <= `ZeroWord;
+    // end
+     else if (stall[4] == `NoStop) begin
       wb_waddr   <= mem_waddr;
       wb_we      <= mem_we;
       wb_wdata   <= mem_wdata;

@@ -32,7 +32,6 @@ wire stallreq_from_mem;
 
 wire                            id_if_branch_flag;
 wire [`RegBus]                  id_if_branch_target_address;
-wire [`InstAddrBus]             pc;
 
 pc_reg pc_reg0(
     .clk(clk),
@@ -85,8 +84,7 @@ wire [`RegBus]                  id_reg1_data_o;
 wire [`RegBus]                  id_reg2_data_o;
 wire                            id_we_o;
 wire [`RegAddrBus]              id_waddr_o;
-wire                            id_is_in_delayslot_o;
-wire [`RegBus]                  id_link_address_o;	
+wire [`RegBus]                  id_link_addr_o;	
 wire [`RegBus]                  id_inst_o;
 
 //连接EX模块的输出与EX/MEM模块的输入--->数据前推：EX阶段前推
@@ -132,7 +130,7 @@ id id0(
 
     //来自MEM阶段的结果
     .mem_waddr_i(mem_waddr_o),
-    .mem_wdata(mem_wdata_o),
+    .mem_wdata_i(mem_wdata_o),
     .mem_we_i(mem_we_o),
 
     //送到ID/EX模块的信息
@@ -145,7 +143,7 @@ id id0(
 	
     .branch_flag_o(id_if_branch_flag),
     .branch_target_address_o(id_if_branch_target_address),       
-    .link_addr_o(id_link_address_o),
+    .link_addr_o(id_link_addr_o),
     
 
     //EX阶段存储加载信息
@@ -181,12 +179,12 @@ id_ex id_ex0(
     .id_reg2_data(id_reg2_data_o),
     .id_waddr(id_waddr_o),            
     .id_we(id_we_o),
-    .id_link_addr(id_link_address_o),
+    .id_link_addr(id_link_addr_o),
     .id_inst(id_inst_o),
 
     //传递到执行阶段EX模块的信息
     .ex_aluop(id_ex_aluop),      
-    .ex_alusel(id_ex_alusel),
+
     .ex_reg1_data(id_ex_reg1_data),        
     .ex_reg2_data(id_ex_reg2_data),
     .ex_waddr(id_ex_waddr),
@@ -205,7 +203,7 @@ ex ex0(
 
     //从ID/EX模块传递来的信息
     .aluop_i(id_ex_aluop),       
-    .alusel_i(id_ex_alusel),
+
     .reg1_i(id_ex_reg1_data),         
     .reg2_i(id_ex_reg2_data),
     .waddr_i(id_ex_waddr),             
@@ -248,7 +246,7 @@ ex_mem ex_mem0(
     .ex_we(ex_we_o),
     .ex_wdata(ex_wdata_o),
 
-    .ex_aluop(ex_aluop_o),
+    .ex_mem_aluop(ex_aluop_o),
     .ex_mem_addr(ex_mem_addr_o),
     .ex_mem_data(ex_mem_data_o),
 
@@ -315,13 +313,13 @@ mem_wb mem_wb0(
     .debug_pc_o(mem_wb_debug_pc),
 
     //来自访存阶段MEM模块的信息	
-    .mem_wd(mem_waddr_o),
-    .mem_wreg(mem_we_o),
+    .mem_waddr(mem_waddr_o),
+    .mem_we(mem_we_o),
     .mem_wdata(mem_wdata_o),
 
     //送到回写阶段的信息
-    .wb_wd(wb_waddr_i),
-    .wb_wreg(wb_we_i),
+    .wb_waddr(wb_waddr_i),
+    .wb_we(wb_we_i),
     .wb_wdata(wb_wdata_i)
                                         
 );
@@ -329,7 +327,7 @@ mem_wb mem_wb0(
 regfile regfile1(
     .clk (clk),
     .rst (rst),
-    .debug_pc_i(mem_wb_debug_pc),
+    .debug_pc(mem_wb_debug_pc),
 
     .we	(wb_we_i),
     .waddr (wb_waddr_i),

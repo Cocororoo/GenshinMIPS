@@ -30,9 +30,9 @@ module ex(
 
 
     //访存指令输出接口（访存）
-    output wire [`AluOpBus]     aluop_o,    //存储类型，同时送往id判断load相关
-    output wire [`RegBus]       mem_addr_o, //存储地址
-    output wire [`RegBus]       mem_data_o      //存储数据
+    output reg  [`AluOpBus]     aluop_o,    //存储类型，同时送往id判断load相关
+    output reg  [`RegBus]       mem_addr_o, //存储地址
+    output reg  [`RegBus]       mem_data_o      //存储数据
 );
 
     //执行阶段
@@ -43,9 +43,9 @@ module ex(
             we_o = `WriteDisable;
         end else begin
             wdata_o = `ZeroWord;
-            waddr_o = waddr;
+            waddr_o = waddr_i;
             we_o = we_i;
-            case(aluop)     
+            case(aluop_i)     
                 `EXE_AND_OP: begin
                     wdata_o = reg1_i & reg2_i;
                 end      
@@ -86,7 +86,7 @@ module ex(
                 end      
                 
                 `EXE_JAL_OP: begin
-                    wdata_o = link_addr;
+                    wdata_o = link_addr_i;
                 end
             endcase
         end
@@ -98,33 +98,33 @@ module ex(
 
     always @(*) begin
         if(rst == `RstEnable) begin
-            aluop_o = `MEM_NOP_OP;
+            aluop_o = `EXE_NOP_OP;
             mem_addr_o = `ZeroWord;
             mem_data_o = `ZeroWord;
         end else begin
-            case(aluop)
+            case(aluop_i)
                 `EXE_LB_OP: begin
-                    aluop_o = `MEM_LB_OP;
+                    aluop_o = `EXE_LB_OP;
                     mem_addr_o = reg1_i + imm_s;
                     mem_data_o = `ZeroWord;
                 end       
                 `EXE_LW_OP: begin
-                    aluop_o = `MEM_LW_OP;
+                    aluop_o = `EXE_LW_OP;
                     mem_addr_o = reg1_i + imm_s;
                     mem_data_o = `ZeroWord;
                 end       
                 `EXE_SB_OP: begin
-                    aluop_o = `MEM_SB_OP;
+                    aluop_o = `EXE_SB_OP;
                     mem_addr_o = reg1_i + imm_s;
                     mem_data_o = reg2_i;
                 end       
                 `EXE_SW_OP: begin
-                    aluop_o = `MEM_SW_OP;
+                    aluop_o = `EXE_SW_OP;
                     mem_addr_o = reg1_i + imm_s;
                     mem_data_o = reg2_i;
                 end       
                 default: begin
-                    aluop_o = `MEM_NOP_OP;
+                    aluop_o = `EXE_NOP_OP;
                     mem_addr_o = `ZeroWord;
                     mem_data_o = `ZeroWord;
                 end
