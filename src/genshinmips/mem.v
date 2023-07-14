@@ -1,7 +1,7 @@
 `include "define.v"
 
 /*
-MEM模块：数据存储器
+MEM模块：访存阶段
 */
 
 module mem (
@@ -101,6 +101,7 @@ module mem (
           mem_addr_o = mem_addr_i;
           mem_we     = `WriteDisable;
           wdata_o    = ram_data_i;
+          mem_data_o = `ZeroWord;
           mem_sel_o  = 4'b1111;
           mem_ce_o   = `ChipEnable;
         end
@@ -137,12 +138,12 @@ module mem (
           mem_ce_o   = `ChipEnable;
         end
         default: begin
-			wdata_o = wdata_i;
-			mem_addr_o = `ZeroWord;
-			mem_data_o = `ZeroWord;
-			mem_we = `WriteDisable;
-			mem_ce_o = `ChipDisable;
-			mem_sel_o = 4'b0000;
+          wdata_o = wdata_i;
+          mem_addr_o = `ZeroWord;
+          mem_data_o = `ZeroWord;
+          mem_we = `WriteDisable;
+          mem_ce_o = `ChipDisable;
+          mem_sel_o = 4'b0000;
         end
       endcase  // case aluop_i
     end  // else

@@ -527,7 +527,7 @@ module id (
     end else if (reg1_re_o == 1'b1) begin
       reg1_data_o = reg1_data_i;  //Regfile读端口2的输出
     end else if (reg1_re_o == 1'b0) begin
-      reg1_data_o = imm;  //立即数
+      reg1_data_o = imm_o;  //立即数
     end else begin
       reg1_data_o = `ZeroWord;
     end
@@ -551,7 +551,7 @@ module id (
     end else if (reg2_re_o == 1'b1) begin
       reg2_data_o = reg2_data_i;  //Regfile读端口2的输出
     end else if (reg2_re_o == 1'b0) begin
-      reg2_data_o = imm;  //立即数
+      reg2_data_o = imm_o;  //立即数
     end else begin
       reg2_data_o = `ZeroWord;
     end
