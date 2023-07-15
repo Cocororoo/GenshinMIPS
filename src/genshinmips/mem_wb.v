@@ -37,7 +37,7 @@ module mem_wb (
     //   wb_wdata   <= `ZeroWord;
     //   debug_pc_o <= `ZeroWord;
     // end
-     else if (stall[4] == `NoStop) begin
+     else begin
       wb_waddr   <= mem_waddr;
       wb_we      <= mem_we;
       wb_wdata   <= mem_wdata;

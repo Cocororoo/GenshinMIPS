@@ -75,7 +75,7 @@ wire        TxD_FIFO_rd_en;
 wire        TxD_FIFO_empty;
 wire [7:0]  TxD_FIFO_dout;
 
-//串口实例化模块，波特率9600，仿真时可改为50000000
+//串口实例化模块，波特率9600
 async_receiver #(.ClkFrequency(59000000),.Baud(9600))   //接收模块
                 ext_uart_r(
                    .clk(clk),                           //外部时钟信号
@@ -95,8 +95,6 @@ async_transmitter #(.ClkFrequency(59000000),.Baud(9600)) //发送模块
                     );
 
 
-
-//fifo接收模块
 fifo_generator_0 RXD_FIFO (
     .rst(rst),
     .clk(clk),

@@ -50,7 +50,7 @@ module id_ex(
 
             ex_link_addr        <= `ZeroWord;
             debug_pc_o          <= `ZeroWord;
-        end else if (stall[2] == `Stop && stall[3] == `NoStop) begin
+        end else if (stall[2] == `Stop) begin
             ex_aluop            <= `EXE_NOP_OP;
 
             ex_reg1_data        <= `ZeroWord;
@@ -60,7 +60,7 @@ module id_ex(
 
             ex_link_addr        <= `ZeroWord;
             debug_pc_o          <= `ZeroWord;
-        end else if (stall[2] == `NoStop) begin
+        end else begin
             ex_aluop            <= id_aluop;
 
             ex_reg1_data        <= id_reg1_data;

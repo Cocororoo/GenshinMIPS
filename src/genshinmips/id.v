@@ -511,7 +511,7 @@ module id (
   /*Part.2 确定进行运算的源操作数1*/
   always @(*) begin
     stallreq_for_reg1_loadrelate = `NoStop;
-    reg1_data_o                  = `ZeroWord;
+    reg1_data_o = `ZeroWord;
     if (rst == `RstEnable) begin
       reg1_data_o = `ZeroWord;
     end else if(pre_inst_is_load == 1'b1 && ex_waddr_i == reg1_raddr_o 
@@ -521,9 +521,9 @@ module id (
     end else if (pre_inst_is_load == 1'b1 && ex_waddr_i == reg1_raddr_o && reg1_re_o == 1'b1) begin
       stallreq_for_reg1_loadrelate = `Stop;
     end else if ((reg1_re_o == 1'b1) && (ex_we_i == 1'b1) && (ex_waddr_i == reg1_raddr_o)) begin
-      reg1_data_o              = ex_wdata_i;      //如果Regfile模块读端口1要读的寄存器就是执行阶段要写的目的寄存器，直接输出执行阶段的结果
+      reg1_data_o = ex_wdata_i;      //如果Regfile模块读端口1要读的寄存器就是执行阶段要写的目的寄存器，直接输出执行阶段的结果
     end else if ((reg1_re_o == 1'b1) && (mem_we_i == 1'b1) && (mem_waddr_i == reg1_raddr_o)) begin
-      reg1_data_o              = mem_wdata_i;     //如果Regfile模块读端口1要读的寄存器就是访存阶段要写的目的寄存器，直接输出执行阶段的结果
+      reg1_data_o = mem_wdata_i;     //如果Regfile模块读端口1要读的寄存器就是访存阶段要写的目的寄存器，直接输出执行阶段的结果
     end else if (reg1_re_o == 1'b1) begin
       reg1_data_o = reg1_data_i;  //Regfile读端口2的输出
     end else if (reg1_re_o == 1'b0) begin

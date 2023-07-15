@@ -35,24 +35,12 @@ module mem (
     output wire stallreq
 );
 
-  assign stallreq = (mem_addr_i >= 32'h80000000) && (mem_addr_i < 32'h80400000);
-
-  wire [`RegBus] zero32;
+  assign stallreq = (mem_addr_i >= `BaseRamStart) && (mem_addr_i < `BaseRam_ExtRam);
   reg            mem_we;
 
   assign mem_we_o = mem_we;
-  assign zero32   = `ZeroWord;
 
   always @(*) begin
-    // waddr_o    = `NOPRegAddr;
-    // we_o       = `WriteDisable;
-    // wdata_o    = `ZeroWord;
-
-    // mem_addr_o = `ZeroWord;
-    // mem_we     = `WriteDisable;
-    // mem_sel_o  = 4'b0000;
-    // mem_data_o = `ZeroWord;
-    // mem_ce_o   = `ChipDisable;
     if (rst == `RstEnable) begin
       waddr_o    = `NOPRegAddr;
       we_o       = `WriteDisable;
@@ -69,27 +57,27 @@ module mem (
 
       case (aluop_i)
         `EXE_LB_OP: begin
-        //   wdata_o    = ram_data_i;
+          wdata_o    = ram_data_i;
           mem_addr_o = mem_addr_i;
           mem_data_o = `ZeroWord;
           mem_we     = `WriteDisable;
           mem_ce_o   = `ChipEnable;
           case (mem_addr_i[1:0])
             2'b00: begin
-                wdata_o   = {{24{ram_data_i[31]}}, ram_data_i[31:24]};
-              mem_sel_o = 4'b1000;
+                // wdata_o   = {{24{ram_data_i[31]}}, ram_data_i[7:0]};
+              mem_sel_o = 4'b0001;
             end
             2'b01: begin
-                wdata_o   = {{24{ram_data_i[23]}}, ram_data_i[23:16]};
-              mem_sel_o = 4'b0100;
-            end
-            2'b10: begin
-                wdata_o   = {{24{ram_data_i[15]}}, ram_data_i[15:8]};
+                // wdata_o   = {{24{ram_data_i[23]}}, ram_data_i[15:8]};
               mem_sel_o = 4'b0010;
             end
+            2'b10: begin
+                // wdata_o   = {{24{ram_data_i[15]}}, ram_data_i[23:16]};
+              mem_sel_o = 4'b0100;
+            end
             2'b11: begin
-                wdata_o   = {{24{ram_data_i[7]}}, ram_data_i[7:0]};
-              mem_sel_o = 4'b0001;
+                // wdata_o   = {{24{ram_data_i[7]}}, ram_data_i[31:24]};
+              mem_sel_o = 4'b1000;
             end
             default: begin
               wdata_o   = `ZeroWord;
@@ -113,16 +101,16 @@ module mem (
           mem_ce_o   = `ChipEnable;
           case (mem_addr_i[1:0])
             2'b00: begin
-              mem_sel_o = 4'b1000;
+              mem_sel_o = 4'b0001;
             end
             2'b01: begin
-              mem_sel_o = 4'b0100;
-            end
-            2'b10: begin
               mem_sel_o = 4'b0010;
             end
+            2'b10: begin
+              mem_sel_o = 4'b0100;
+            end
             2'b11: begin
-              mem_sel_o = 4'b0001;
+              mem_sel_o = 4'b1000;
             end
             default: begin
               mem_sel_o = 4'b0000;
