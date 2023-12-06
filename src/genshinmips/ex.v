@@ -82,7 +82,7 @@ module ex(
                     wdata_o = reg1_i + (~reg2_i) + 1;
                 end      
                 `EXE_MUL_OP: begin
-                    wdata_o = reg1_i * reg2_i;   //无符号乘法代替有符号乘法
+                    wdata_o = reg1_i * reg2_i; 
                 end      
                 
                 `EXE_JAL_OP: begin

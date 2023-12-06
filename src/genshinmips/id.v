@@ -84,14 +84,16 @@ module id (
     wire[31:0] imm_s = {{16{imm[15]}}, imm};    // 有符号扩展
 
     // 跳转地址
-    wire[31:0] next_pc;
-    wire[31:0] jump_addr = {next_pc[31:28], inst_index, 2'b00};
-    wire[31:0] branch_addr = next_pc + {imm_s[29:0], 2'b00};
+    wire[31:0] pc_plus_4;
+    wire[31:0] pc_plus_8;
+    wire[31:0] jump_addr = {pc_plus_4[31:28], inst_index, 2'b00};
+    wire[31:0] branch_addr = pc_plus_4 + {imm_s[29:0], 2'b00};
 
     // 选择是有符号扩展还是无符号扩展
     reg[31:0]   imm_o;
 
-    assign next_pc = id_pc_i + 4'h4;
+    assign pc_plus_4 = id_pc_i + 4'h4;
+    assign pc_plus_8 = id_pc_i + 4'h8;
 
     //译码
     always @(*) begin
@@ -444,7 +446,7 @@ module id (
             `JAL_OP: begin
                 branch_flag_o = `Branch;
                 branch_target_address_o = jump_addr;
-                link_addr_o = next_pc + 4'h4;
+                link_addr_o = pc_plus_8;
             end
             `R_OP: begin
                 if(shamt == 5'b00000) begin
@@ -456,7 +458,7 @@ module id (
                         `JALR_FUNC: begin
                             branch_flag_o = `Branch;
                             branch_target_address_o = reg1_data_o;
-                            link_addr_o = next_pc + 4'h4;
+                            link_addr_o = pc_plus_8;
                         end
                     default:	begin
                         end
@@ -483,7 +485,7 @@ module id (
                         if(reg1_data_o[31] == 1'b0) begin
                             branch_flag_o = `Branch;
                             branch_target_address_o = branch_addr;
-                            link_addr_o = next_pc + 4'h4;
+                            link_addr_o = pc_plus_8;
                         end else begin
                         end
                     end
@@ -491,7 +493,7 @@ module id (
                         if(reg1_data_o[31] == 1'b1) begin
                             branch_flag_o = `Branch;
                             branch_target_address_o = branch_addr;
-                            link_addr_o = next_pc + 4'h4;
+                            link_addr_o = pc_plus_8;
                         end else begin
                         end
                     end
