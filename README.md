@@ -1,0 +1,3 @@
+# GenshinMIPS
+2023NSCSCC龙芯杯个人赛MIPS赛道作品，采用五级流水架构的简易单周期流水线
+cpu部分代码位于GenshinMIPS/src/genshinmips目录
